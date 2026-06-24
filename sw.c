@@ -61,7 +61,7 @@ int main() {
 									// salvati dati del client (IP e porta d'origine).
 	int i,j;						// Iteratori
 	int t,counter;					// Counter
-	int lunghezza,lungh;			// lunghezza: Usata per indicare la dimensione della struct client
+	int lunghezza;			// lunghezza: Usata per indicare la dimensione della struct client
 									// e passata ad accept().
 	int s,s2;		// s = Listening Socket, attende nuove connessioni in entrata (creato con socket())
 					// s2 = Connected Socket, restituito dalla funzione accept() ogni volta che un client
@@ -85,6 +85,7 @@ int main() {
 	char * rl;	// Request Line: È un puntatore che punta alla prima riga in assoluto della richiesta HTTP
 				// 				(ad esempio GET /index.html HTTP/1.1) che nella struttura logica corrisponde al 
 				//				primo nome (h[0].n).
+
 	// - Variabili non utilizzate - Legacy -
 	unsigned char req[1000000];		// Non utilizzata
 	int x;							// Non utilizzata
@@ -92,7 +93,7 @@ int main() {
 
 	char * resp_500 = "HTTP/1.1 500 Internal Server Error\r\nContent-Length:39\r\n\r\n<html><H1>Torno Subito!</H1><br></html>";
 	char * resp_404 = "HTTP/1.1 404 File not found\r\n\r\n";
-	char * resp_200 = "HTTP/1.1 200 OK \r\nConnection: closed\r\n\r\n";
+	char * resp_200 = "HTTP/1.1 200 OK \r\nConnection:closed\r\n\r\n";
 
 	if ((s = socket(AF_INET, SOCK_STREAM, 0)) == -1) {		// Inizializzazione Socket
 		perror("Socket Fallita");
@@ -116,8 +117,8 @@ int main() {
 	// server.sin_addr.s_addr = 0;
 	// Metodo sopra funziona ma non è preferibile. s.addr = 0 consente l'utilizzo di ogni NIC per connessioni in entrata.
 	// Con inet_pton scegliamo l'IP LOCALE di destinazione.
-	server.sin_port = htons(8005);
-	if (-1 == inet_pton(AF_INET, "10.70.93.72", &server.sin_addr)) {
+	server.sin_port = htons(8008);
+	if (-1 == inet_pton(AF_INET, "127.0.0.1", &server.sin_addr)) {
 		perror("IP Address Configuration Failed");
 		return 1;
 	} else {
@@ -142,7 +143,7 @@ int main() {
 
 	while (1) {
 		lunghezza = sizeof(struct sockaddr_in);
-		if(-1 == (s2 = accept(s,(struct sockaddr *) &client, &lunghezza))) {	// --- Accept ---
+		if(-1 == (s2 = accept(s, (struct sockaddr *) &client, &lunghezza))) {	// --- Accept ---
 			 perror("Accept failed");
 			 return 0;
 		}
@@ -166,7 +167,7 @@ int main() {
 		}
 
 		// --- Entity Body Lenght Parser ---
-		lungh = 0;
+		lunghezza = 0;
 		for(i=0; h[i].n[0]; i++){
 			if(sonouguali(h[i].n, "Content-Length")) {
 				lunghezza = stringaintero(h[i].v+1);
@@ -176,9 +177,9 @@ int main() {
 		}
 
 		// --- Lettura e Stampa dell'entitybody ---
-		for(counter = 0; (t = read(s2,entitybody+counter,lungh-counter)); counter += t);
+		for(counter = 0; (t = read(s2,entitybody+counter,lunghezza-counter)); counter += t);
 		entitybody[counter] = 0;					// Aggiunge terminatore alla fine della stringa entitybody
-		printf("Entity body : %d\n", counter );		// Lunghezza in caratteri dell'entitybody
+		printf("Entity body : %d\n", counter);		// Lunghezza in caratteri dell'entitybody
 		printf("%s\n", entitybody);
 
 		rl=h[0].n;						// Parsing della request line (primo oggetto della struttura)
@@ -217,11 +218,6 @@ int main() {
 		}
 
 		close(s2);	// Chiusura socket
-
-		// Invia la risposta usando strlen() per sapere esattamente quanti byte inviare sulla rete
-		write(s2,response, strlen(response));
-		close(s2);	// Chiusura del socket
-
 	} // parentesi del while(1)
 }
 

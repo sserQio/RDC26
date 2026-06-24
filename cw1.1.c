@@ -6,9 +6,12 @@
 #include <arpa/inet.h>			// for inet_pton()
 #include <unistd.h>				// read() and write()
 
-int connection, i, j;
+#define CHUNKED -2
+#define ENTITY_SIZE 100000
+
+int connection, i, j, t, chunk_size, length;
 struct sockaddr_in server;		// Destination Server
-char entitybody[2000], primiDuePunti, hbuf[10000];	// hbuf: buffer that recieves the header
+char entitybody[2000000], primiDuePunti, hbuf[10000], check[2], chunk[1000000];	// hbuf: buffer that recieves the header
 struct header {
 	char * n;		// Name
 	char * v;		// Value
@@ -38,12 +41,12 @@ int main() {
 	}
 	printf("File Descriptor Index: %d\n", tcp_socket);
 
-	const char * req = "GET /page1.html HTTP/1.1\r\n\r\n";
+	const char * req = "GET / HTTP/1.1\r\n\r\n";
 
 	// Destination Server Declaration
 	server.sin_family = AF_INET;
 	server.sin_port = htons(80);		// Host To Network Short
-	if (inet_pton(AF_INET, "142.251.140.110", &server.sin_addr) <= 0) {	// Set destination server ip
+	if (inet_pton(AF_INET, "172.217.23.67", &server.sin_addr) <= 0) {	// Set destination server ip
 		perror("Invalid IP Address");
 		return 1;
 	}
@@ -58,7 +61,7 @@ int main() {
 	}
 
 	// Communication
-	for (i = 0; (connection = write(tcp_socket, req + i, strlen(req) - i)); i += connection);
+	for (i = 0; (t = write(tcp_socket, req + i, strlen(req) - i)); i += t);
 
 	// Parser for Header
 	h[0].n = hbuf+1;
@@ -79,23 +82,49 @@ int main() {
 	}
 
 	// Prints Header
-	// for(i = 0; h[i].n[0]; i++)	 printf("%s ---> %s\n", h[i].n, h[i].v);
-
-	char * chunk;
-	int chunkint;
-	i = 0;
-	while (connection > 0) {
-		if ((entitybody[i + 4] == '\n') && (entitybody[i + 5] == '\r')) {
-			chunk = entitybody;
-			printf("Next chunk %s\n", chunk);
+	for(i = 0; h[i].n[0]; i++) {
+		printf("%s ---> %s\n", h[i].n, h[i].v);
+		if (!strcmp(h[i].n, "Content-Length")) {
+			length = atoi(h[i].v);
 		}
-		chunkint = strtol(chunk, NULL, 16);
-		connection = read(tcp_socket, entitybody, chunkint);
-		chunk += chunkint;
+		if (!strcmp(h[i].n, "Transfer-Encoding")) {
+			length = CHUNKED;
+		}
 	}
 
-	entitybody[i] = 0;	// String terminator, for printf
-	printf("%s", entitybody);
+	printf("Transfer Method: %d\n", length);
+
+	// CHUKED CASE
+	if (length == CHUNKED) {
+		for (i = 0, j = 0, chunk_size = -1; chunk_size != 0;) {
+			// Undefined behavior nel ciclo seguente - Non importa, il codice ha scopo didattico
+			for (i = 0; i < 10 && read(tcp_socket, chunk + i, 1) && chunk[i - 1] != '\r' && chunk[i] != '\n'; i++);
+			chunk[i] = 0;
+			printf("Extracting chunk size (str): %s\n", chunk);
+			chunk_size = (int) strtol(chunk, NULL, 16);
+			printf("Extracting chunk size (int): %d\n", chunk_size);
+
+			for (i = 0; i < ENTITY_SIZE && (t = read(tcp_socket, entitybody + j, chunk_size - i)); i += t, j += t);  
+
+			// Consumo il CRLF alla fine del chunk
+			i = read(tcp_socket, check, 2);
+
+			printf("Check del CRLF dopo il dati del chunk\n");
+			if (i != 2 || check[0] != '\r'|| check[1] != '\n') {
+				printf("Error reading last CRLF in chunk body\n");
+				return -1;
+			}
+		}
+	entitybody[j] = 0;
+	}
+
+	// CONTENT-LENGTH CASE
+	if (length != CHUNKED) {
+		for (i = 0; i < length && (t = read(tcp_socket, entitybody + i, ENTITY_SIZE - i)); i += t);
+		entitybody[i] = 0;
+	}
+
+	printf("%s\n", entitybody);
 	return 0;
 }
 

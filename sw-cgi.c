@@ -50,9 +50,9 @@ char * myargv[10];
 	nell'array globale env. Questo sará il pacco che il server consegnerá
 	al programma cgiexe al momento dell'esecuzione. */
 void add_env(char * env_key, char* env_value){
-                sprintf(envbuf+env_c,"%s=%s",env_key,env_value);
-                env[env_i++] = envbuf+env_c;
-                env_c += (strlen(env_value)+strlen(env_key)+2);
+                sprintf(envbuf + env_c, "%s=%s", env_key, env_value);
+                env[env_i++] = envbuf + env_c;
+                env_c += (strlen(env_value) + strlen(env_key) + 2);
                 env[env_i] = NULL;
 }
 
@@ -61,7 +61,7 @@ int main() {
 	char hbuffer[10000];
 	char * reqline;
 	char * method, *url, *ver;
-	char * filename,*content_type;
+	char * filename, *content_type;
 	char fullname[200];
 	FILE * fin;
 	int c;
@@ -73,7 +73,7 @@ int main() {
 
 	// === Setup Connessione ===
 	if (( s = socket(AF_INET, SOCK_STREAM, 0 )) == -1) { 
-		printf("errno = %d\n",errno);
+		printf("errno = %d\n", errno);
 		perror("Socket Fallita");
 		return -1;
 	}
@@ -106,8 +106,8 @@ int main() {
 	// === Main Loop ===
 	while (1) {
 		s2 = accept(s, (struct sockaddr *) &remote, &len);
-		bzero(hbuffer,10000);		// bzero() appartiene a <strings.h>. Spiegazione sotto...
-		bzero(h,sizeof(struct header)*100);
+		bzero(hbuffer, 10000);		// bzero() appartiene a <strings.h>. Spiegazione sotto...
+		bzero(h, sizeof(struct header)*100);
 		reqline = h[0].n = hbuffer;
 		for (i=0,j=0; read(s2,hbuffer+i,1); i++) {
 			if(hbuffer[i]=='\n' && hbuffer[i-1]=='\r'){
